@@ -12,20 +12,70 @@ def read_image(path):
     return img
 
 
-def rescaler(frame, scale=0.75, dimension=None):
-    if not dimension:
-        width = int(frame.shape[1] * scale)
-        height = int(frame.shape[0] * scale)
-        dim = (width, height)
+def get_scale(original_width, original_height, min_width, max_width, min_height, max_height):
+
+    aspect_ratio = original_width / original_height
+
+    # Calculate potential new dimensions
+    width_based_height = min_width / aspect_ratio
+    height_based_width = min_height * aspect_ratio
+
+    # Decide based on constraints
+    if min_width <= max_width and min_height <= width_based_height <= max_height:
+        new_width = min_width
+        new_height = width_based_height
+    elif min_height <= max_height and min_width <= height_based_width <= max_width:
+        new_width = height_based_width
+        new_height = min_height
     else:
-        dim = dimension
+        # Fallback, if no conditions match, just use the max width and height
+        new_width = max_width
+        new_height = int(max_width / aspect_ratio)
+        if new_height > max_height:
+            new_height = max_height
+            new_width = int(max_height * aspect_ratio)
+
+    return new_width, new_height
+
+
+def rescaler(frame, scaling_prop, keep_aspect=True):
+    image_shape = frame.shape[:2]
+    min_max_width = scaling_prop.get('min_max_width', None)
+    min_max_height = scaling_prop.get('min_max_width', None)
+    dimension = scaling_prop.get('dimension', None)
+    scale = scaling_prop.get('scale', None)
+
+    if keep_aspect:
+        dim = get_scale(
+            image_shape[1],
+            image_shape[0],
+            min_max_width[0],
+            min_max_width[1],
+            min_max_height[0],
+            min_max_height[1]
+        )
+    else:
+        if not dimension:
+            width = int(frame.shape[1] * scale)
+            height = int(frame.shape[0] * scale)
+            dim = (width, height)
+        else:
+            dim = dimension
     return cv.resize(frame, dim, interpolation=cv.INTER_AREA)
 
 
-def display_image(img, scale=0.5, save_path=None):
-    # rescale image
-    img = rescaler(img, scale=scale, dimension=(1000, 600))
-    cv.imshow("Display Window", img)
+def display_image(img, save_path=None):
+    img = rescaler(
+            img,
+            scaling_prop={
+                'min_max_width': (1200, 1280),
+                'min_max_height': (900, 960),
+            },
+            keep_aspect=True
+        )
+    img_shape = img.shape[:2]
+
+    cv.imshow(f"Display Window - Aspect ratio: {img_shape[1] / img_shape[0]}", img)
     k = cv.waitKey(0)
     if save_path:
         if k == ord("s"):
